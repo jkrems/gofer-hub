@@ -1,0 +1,32 @@
+{
+  "name": "gofer-hub",
+  "version": "1.0.0",
+  "description": "The actual fetching parts of gofer",
+  "main": "lib/hub.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "Jan Krems <jan.krems@gmail.com>",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "license": {
+      "exclude": [
+        "test"
+      ]
+    }
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "assertive": "^1.4.0",
+    "coffee-script": "^1.8.0",
+    "concat-stream": "^1.4.6",
+    "mocha": "^2.0.1",
+    "npub": "0.0.6"
+  },
+  "dependencies": {
+    "bluebird": "^2.3.11",
+    "lodash": "^2.4.1",
+    "mime-types": "^2.0.2",
+    "readable-stream": "~1.0.33"
+  }
+}
