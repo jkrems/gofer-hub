@@ -47,16 +47,9 @@ defaultBodyParser = (body, response) ->
   contentType = response.headers['content-type']
   switch mime.extension contentType
     when 'json'
-      if body.length == 0
-        undefined
-      else
-        try
-          JSON.parse body.toString 'utf8'
-        catch err
-          # TODO: nice parse errors
-          Promise.reject err
-    else
-      body
+      if body.length == 0 then undefined
+      else JSON.parse body.toString 'utf8'
+    else body
 
 getRangeChecker = memoize (spec) ->
   ranges = spec.split(',').map (range) ->

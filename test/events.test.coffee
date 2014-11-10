@@ -13,7 +13,7 @@ describe 'events', ->
   withLogLine = (event, baseUrl, latency, uri) -> (done) ->
     baseUrl ?= api.baseUrl
     uri ?= '/echo'
-    @timeout 50
+    @timeout 100
 
     @hub = new Hub()
     @hub.on event, (@logLine) => done()

@@ -77,7 +77,7 @@ describe 'hub.fetch', ->
       .then(unexpected, verify)
       .nodeify(done)
 
-  it.only 'treats invalid status codes as errors in then-able', (done) ->
+  it 'treats invalid status codes as errors in then-able', (done) ->
     @timeout 50
     unexpected = (data) ->
       throw new Error "Unexpected response: #{data.toString 'utf8'}"
