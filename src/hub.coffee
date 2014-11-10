@@ -82,22 +82,35 @@ addAgentOptions = (httpOptions, options) ->
 generateUUID = ->
   uuid.v1().replace /-/g, ''
 
+createDefaultStatusRange = ({minStatusCode, maxStatusCode}) ->
+  minStatusCode ?= 200
+  maxStatusCode ?= 299
+  "#{minStatusCode}..#{maxStatusCode}"
+
+testStatusCode = (code, spec) ->
+  ranges = spec.split ','
+  ranges.some (range) ->
+    [min, max] = range.split '..'
+    min <= code <= (max ? min)
+  return false
+
 class Hub extends EventEmitter
   constructor: ->
     return new Hub() unless this instanceof Hub
     EventEmitter.call this
 
   fetch: (options, callback) ->
+    statusCodeRange =
+      if options.statusCodeRange then options.statusCodeRange
+      else createDefaultStatusRange options
+
     metaOptions = {
       requestId: options.requestId ? generateUUID()
       fetchId: generateUUID()
       bodyParser: options.bodyParser
+      statusCodeRange: statusCodeRange
     }
     req = new HubRequest metaOptions
-
-    req.on 'response', (response) ->
-      if response.statusCode != 200
-        req.emit 'error', new Error 'Non-200 status code'
 
     req.on 'complete', (error, response, stats) =>
       if error

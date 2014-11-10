@@ -75,8 +75,11 @@ describe 'events', ->
       assert.hasType Number, @logLine.fetchDuration
       assert.equal 'GET', @logLine.method
       assert.equal 'ECONNREFUSED', @logLine.statusCode
+      assert.equal 'connect', @logLine.syscall
+      assert.equal 'connect ECONNREFUSED', @logLine.error.message
+      assert.equal undefined, @logLine.statusCodeRange
 
-  describe.only 'failure', ->
+  describe 'failure', ->
     before withLogLine('failure', null, null, '/not-found')
 
     it 'fires when an invalid status code is returned', ->
@@ -88,3 +91,5 @@ describe 'events', ->
       assert.hasType Number, @logLine.fetchDuration
       assert.equal 'GET', @logLine.method
       assert.equal 404, @logLine.statusCode
+      assert.equal undefined, @logLine.syscall
+      assert.equal '200..299', @logLine.statusCodeRange
