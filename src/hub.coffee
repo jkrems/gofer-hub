@@ -32,7 +32,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 http = require 'http'
 https = require 'https'
-url = require 'url'
 {EventEmitter} = require 'events'
 
 Promise = require 'bluebird'
@@ -40,99 +39,26 @@ Promise = require 'bluebird'
 concat = require 'concat-stream'
 mime = require 'mime-types'
 {extend, pick, isEmpty} = require 'lodash'
+uuid = require 'node-uuid'
+debug = require('debug')('gofer-hub')
 
-noop = ->
+HubRequest = require './request'
+getParsedUri = require './url'
 
-toNull = -> null
+defaultHeaders = ({requestId, fetchId}) ->
+  headers =
+    Accept: 'application/json,*/*;q=0.8'
+    'X-Fetch-ID': fetchId
 
-identity = (x) -> x
+  headers['X-Request-ID'] = requestId if requestId
 
-next = (ee, event) ->
-  new Promise (resolve, reject) ->
-    ee.once 'error', reject unless event == 'error'
-    ee.once event, resolve
+  headers
 
-defaultBodyParser = (body, response) ->
-  contentType = response.headers['content-type']
-  switch mime.extension contentType
-    when 'json'
-      if body.length == 0
-        undefined
-      else
-        try
-          JSON.parse body.toString 'utf8'
-        catch err
-          # TODO: nice parse errors
-          throw err
-    else
-      body
-
-class HubRequest extends Duplex
-  constructor: (options) ->
-    Duplex.call this
-
-    @bodyParser = options.bodyParser ? defaultBodyParser
-    @_errorOrNull = next(this, 'end').then(toNull, identity)
-
-  init: (@_req) ->
-    @_req.once 'error', @emit.bind this, 'error'
-    @response = new Promise (resolve, reject) =>
-      @_req.once 'error', reject
-      @_req.once 'response', (response) =>
-        response.on 'data', (chunk) => @push chunk
-        response.once 'end', => @push null
-        response.once 'error', (error) => @emit 'error', error
-        resolve response
-        @emit 'response', response
-
-    @_stats = {}
-
-    @_write = @_req.write.bind(@_req)
-    @once 'finish', @_finalize.bind this
-
-  _read: (size) -> # Handled by response received
-
-  _finalize: -> @_req.end()
-
-  getResponse: (callback) -> @response.nodeify(callback)
-
-  getRawBody: (callback) ->
-    @_rawBody ?= @response.then =>
-      new Promise (resolve, reject) =>
-        @once 'error', reject
-        @pipe concat resolve
-
-    @_rawBody.nodeify callback
-
-  getBody: (callback) ->
-    Promise.all([
-      @getRawBody(), @response
-    ]).spread(@bodyParser).nodeify(callback)
-
-  fail: (error) ->
-    setImmediate @emit.bind(this, 'error', error)
-    return this
-
-  then: (success, error, progress) ->
-    @getBody().then success, error, progress
-
-  addDataDump: (callback) ->
-    Promise.all([
-      @_errorOrNull
-      @getBody().catch(noop)
-      @getResponse().catch(noop)
-      @_stats
-    ]).nodeify (err, results) ->
-      return callback(err) if err?
-      callback results...
-
-formatUri = (options) ->
-  options.uri
-
-defaultHeaders = ->
-  accept: 'application/json,*/*;q=0.8'
-
-TLS_OPTIONS = [
+AGENT_OPTIONS = [
+  'maxSockets'
+  'keepAliveMsecs'
+  'keepAlive'
+  'maxFreeSockets'
   'pfx'
   'key'
   'passphrase'
@@ -143,24 +69,56 @@ TLS_OPTIONS = [
   'secureProtocol'
 ]
 
+addAgentOptions = (httpOptions, options) ->
+  agentOptions = pick options, AGENT_OPTIONS
+  return if isEmpty agentOptions
+  if httpOptions.agent == false
+    extend httpOptions, agentOptions
+  else
+    if agentOptions.maxSockets
+      httpOptions.agent.maxSockets = agentOptions.maxSockets
+    extend httpOptions.agent.options, agentOptions
+
+generateUUID = ->
+  uuid.v1().replace /-/g, ''
+
 class Hub extends EventEmitter
   constructor: ->
     return new Hub() unless this instanceof Hub
     EventEmitter.call this
 
   fetch: (options, callback) ->
-    req = new HubRequest {
+    metaOptions = {
+      requestId: options.requestId ? generateUUID()
+      fetchId: generateUUID()
       bodyParser: options.bodyParser
     }
+    req = new HubRequest metaOptions
 
-    fullUri = formatUri options
-    unless fullUri
-      return req.fail new Error('A uri is required')
+    req.on 'response', (response) ->
+      if response.statusCode != 200
+        req.emit 'error', new Error 'Non-200 status code'
 
-    httpOptions = extend url.parse(fullUri), {
+    req.on 'complete', (error, response, stats) =>
+      if error
+        if typeof stats.statusCode == 'number'
+          @emit 'failure', stats
+        else
+          @emit 'fetchError', stats
+      else
+        @emit 'success', stats
+
+    req.on 'connect', =>
+      @emit 'connect', req.stats
+
+    parsed = getParsedUri options
+    unless parsed.protocol
+      return req.fail new Error('A full uri is required')
+
+    httpOptions = extend parsed, {
       agent: options.agent
       auth: options.auth
-      headers: extend defaultHeaders(), (options.headers ? {})
+      headers: extend defaultHeaders(metaOptions), (options.headers ? {})
       localAddress: options.localAddress
       method:
         if options.method?
@@ -169,22 +127,29 @@ class Hub extends EventEmitter
           'GET'
     }
 
-    tlsOptions = pick options, TLS_OPTIONS
-    isHttps = httpOptions.protocol == 'https:'
-    httpLib = if isHttps then https else http
+    if httpOptions.protocol == 'https:'
+      httpOptions.port ?= 443
+      if options.secureAgent?
+        httpOptions.agent = options.secureAgent
+      httpLib = https
+    else
+      httpOptions.port ?= 80
+      httpLib = http
 
-    if isHttps && !isEmpty tlsOptions
-      if httpOptions.agent == false
-        extend httpOptions, tlsOptions
-      else unless httpOptions.agent?
-        return req.fail new Error(
-          'TLS options are not supported when using the global agent'
-        )
+    try
+      httpOptions.agent ?= httpLib.globalAgent
+      addAgentOptions httpOptions, options
+    catch error
+      return req.fail error
 
     nativeReq = httpLib.request httpOptions
+    nativeReq.setTimeout options.timeout if options.timeout
 
-    req.init nativeReq
+    req.init nativeReq, httpOptions
     req.setEncoding options.encoding if options.encoding
+
+    debug '-> %s', options.method, options.uri
+    @emit 'start', req.stats
 
     hasBody = httpOptions.method != 'GET'
     req.end() unless hasBody

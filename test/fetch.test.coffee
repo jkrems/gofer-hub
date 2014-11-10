@@ -6,6 +6,8 @@ Hub = require '../'
 
 withTestAPI = require './_test_api'
 
+INVALID_URI = 'http://127.0.0.1:13'
+
 describe 'hub.fetch', ->
   before ->
     @hub = new Hub()
@@ -88,7 +90,7 @@ describe 'hub.fetch', ->
 
   it 'passes errors into the callback', (done) ->
     @timeout 50
-    stream = @hub.fetch uri: 'http://127.0.0.1:13', (error) ->
+    stream = @hub.fetch uri: INVALID_URI, (error) ->
       assert.equal 'ECONNREFUSED', error?.code
       done()
 

@@ -25,8 +25,11 @@
   },
   "dependencies": {
     "bluebird": "^2.3.11",
+    "debug": "^2.1.0",
     "lodash": "^2.4.1",
     "mime-types": "^2.0.2",
+    "node-uuid": "^1.4.1",
+    "qs": "^2.3.2",
     "readable-stream": "~1.0.33"
   }
 }
