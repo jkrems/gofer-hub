@@ -109,6 +109,8 @@ class Hub extends EventEmitter
       fetchId: generateUUID()
       bodyParser: options.bodyParser
       statusCodeRange: statusCodeRange
+      connectTimeout: options.connectTimeout
+      completionTimeout: options.completionTimeout
     }
     req = new HubRequest metaOptions
 

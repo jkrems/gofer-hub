@@ -141,19 +141,20 @@ class HubRequest extends Duplex
     @_errorOrNull = next(this, 'end').then(toNull, identity)
     @stats = new Stats options
     @statusCodeRange = options.statusCodeRange
+    @connectTimeout = options.connectTimeout
+    @completionTimeout = options.completionTimeout
 
   _handleSocket: (socket) ->
-    connectTimeout = 10
     connectTimedOut = =>
       {requestOptions} = @stats.connected()
       err = new Error 'ECONNECTTIMEDOUT'
       err.code = 'ECONNECTTIMEDOUT'
       err.message = "Connecting to #{requestOptions.method} " +
-        "#{requestOptions.href} timed out after #{connectTimeout}ms"
+        "#{requestOptions.href} timed out after #{@connectTimeout}ms"
       err.responseData = @stats
       @_req.emit 'error', err
 
-    handle = setTimeout connectTimedOut, connectTimeout
+    handle = setTimeout connectTimedOut, @connectTimeout if @connectTimeout
     clearConnectTimedOut = -> clearTimeout handle
     @once 'error', clearConnectTimedOut
 
@@ -187,11 +188,22 @@ class HubRequest extends Duplex
       response.pipe concat resolve
 
     Promise.all([ rawBody, response ])
-      .spread(@bodyParser)
-      .catch(noop)
+      .spread(@bodyParser).catch(noop)
       .done (body) =>
         @emit 'error', extend(apiError, {body})
         @emit 'response', response
+
+  _setupCompletionTimeout: ->
+    return unless @completionTimeout
+
+    completionTimedOut = =>
+      err = new Error 'ETIMEDOUT'
+      err.code = 'ETIMEDOUT'
+      err.message = "Response timed out after #{@completionTimeout}ms"
+      @emit 'error', err
+
+    handle = setTimeout completionTimedOut
+    @_errorOrNull.done => clearTimeout handle
 
   init: (@_req, requestOptions) ->
     @stats.start requestOptions
@@ -210,6 +222,7 @@ class HubRequest extends Duplex
     @_write = @_req.write.bind(@_req)
     @once 'finish', => @_req.end()
     @once 'error', => @_req.abort()
+    @_setupCompletionTimeout()
 
   _read: (size) -> # Handled by response received
 

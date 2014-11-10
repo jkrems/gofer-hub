@@ -77,6 +77,22 @@ describe 'hub.fetch', ->
       .then(unexpected, verify)
       .nodeify(done)
 
+  it.only 'treats invalid status codes as errors in then-able', (done) ->
+    @timeout 50
+    unexpected = (data) ->
+      throw new Error "Unexpected response: #{data.toString 'utf8'}"
+
+    verify = (error) ->
+      assert.equal 404, error?.statusCode
+      assert.deepEqual {
+        message: 'Not found'
+        url: '/not-found'
+      }, error.body
+
+    Promise.resolve(@hub.fetch uri: "#{api.baseUrl}/not-found")
+      .then(unexpected, verify)
+      .nodeify(done)
+
   it 'returns all kinds of data when passing a callback', (done) ->
     @timeout 50
     stream = @hub.fetch uri: api.baseUrl, (error, body, response, stats) ->

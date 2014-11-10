@@ -31,7 +31,11 @@ class TestApi
           res.end 'ok'
         else
           res.statusCode = 404
-          res.end 'Not found'
+          res.setHeader 'content-type', 'application/json; charset=utf8'
+          res.end JSON.stringify {
+            message: 'Not found'
+            url: parsed.pathname
+          }
 
       setTimeout respond, parseInt(parsed.query.__l ? '0', 10)
 
