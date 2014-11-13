@@ -21,5 +21,5 @@ describe 'hub.fetch', ->
       completionTimeout: 10
       qs: { __l: 20 }
     }, (error, body, response, stats) ->
-      assert.equal 'Response timed out after 10ms', error.message
+      assert.equal 'Response timed out after 10ms', error?.message
       done()

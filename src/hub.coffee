@@ -34,10 +34,6 @@ http = require 'http'
 https = require 'https'
 {EventEmitter} = require 'events'
 
-Promise = require 'bluebird'
-{Duplex} = require 'readable-stream'
-concat = require 'concat-stream'
-mime = require 'mime-types'
 {extend, pick, isEmpty} = require 'lodash'
 uuid = require 'node-uuid'
 debug = require('debug')('gofer-hub')

@@ -13,13 +13,13 @@ class TestApi
 
   _setup: (done) ->
     @server = http.createServer (req, res) ->
-      parsed = url.parse req.url
+      parsed = url.parse req.url, true
       parsed.query ?= {}
       respond = ->
         if parsed.pathname == '/echo'
           res.setHeader 'content-type', 'application/json; charset=utf8'
           res.end JSON.stringify {
-            url: url.parse(req.url, true)
+            url: parsed
             headers: req.headers
           }
         else if parsed.pathname == '/false-json'
