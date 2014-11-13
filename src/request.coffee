@@ -134,8 +134,15 @@ class HubRequest extends Duplex
     @_errorOrNull = next(this, 'end').then(toNull, identity)
     @stats = new Stats options
     @statusCodeRange = options.statusCodeRange
+    @timeout = options.timeout
     @connectTimeout = options.connectTimeout
     @completionTimeout = options.completionTimeout
+
+  _autoFlush: =>
+    console.log 'auto flushing', @_req.method
+    # hasBody = httpOptions.method != 'GET'
+    # req.end() unless hasBody
+    @_req.end()
 
   _handleSocket: (socket) ->
     connectTimedOut = =>
@@ -186,6 +193,18 @@ class HubRequest extends Duplex
         @emit 'error', extend(apiError, {body})
         @emit 'response', response
 
+  _setupTimeout: ->
+    return unless @timeout
+    @_req.setTimeout @timeout
+
+    requestTimedOut = =>
+      @emit 'error', extend(new Error('ETIMEDOUT'), {
+        code: 'ETIMEDOUT'
+      })
+
+    handle = setTimeout requestTimedOut, @timeout
+    @response.catch(noop).then -> clearTimeout handle
+
   _setupCompletionTimeout: ->
     return unless @completionTimeout
 
@@ -195,7 +214,7 @@ class HubRequest extends Duplex
       err.message = "Response timed out after #{@completionTimeout}ms"
       @emit 'error', err
 
-    handle = setTimeout completionTimedOut
+    handle = setTimeout completionTimedOut, @completionTimeout
     @_errorOrNull.done => clearTimeout handle
 
   init: (@_req, requestOptions) ->
@@ -215,7 +234,9 @@ class HubRequest extends Duplex
     @_write = @_req.write.bind(@_req)
     @once 'finish', => @_req.end()
     @once 'error', => @_req.abort()
+    @_setupTimeout()
     @_setupCompletionTimeout()
+    setImmediate @_autoFlush
 
   _read: (size) -> # Handled by response received
 
@@ -248,6 +269,8 @@ class HubRequest extends Duplex
       @stats
     ]).nodeify (error, results) =>
       return callback(error, undefined, undefined, @stats) if error?
-      callback results...
+      [ error, body, response, stats ] = results
+      body ?= error.body if error?
+      callback error, body, response, stats
 
 module.exports = HubRequest

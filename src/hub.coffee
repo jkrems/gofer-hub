@@ -109,6 +109,7 @@ class Hub extends EventEmitter
       fetchId: generateUUID()
       bodyParser: options.bodyParser
       statusCodeRange: statusCodeRange
+      timeout: options.timeout
       connectTimeout: options.connectTimeout
       completionTimeout: options.completionTimeout
     }
@@ -158,16 +159,12 @@ class Hub extends EventEmitter
       return req.fail error
 
     nativeReq = httpLib.request httpOptions
-    nativeReq.setTimeout options.timeout if options.timeout
 
     req.init nativeReq, httpOptions
     req.setEncoding options.encoding if options.encoding
 
     debug '-> %s', options.method, options.uri
     @emit 'start', req.stats
-
-    hasBody = httpOptions.method != 'GET'
-    req.end() unless hasBody
 
     req.addDataDump callback if callback
 
