@@ -103,6 +103,7 @@ class Hub extends EventEmitter
     metaOptions = {
       requestId: options.requestId ? generateUUID()
       fetchId: generateUUID()
+      logData: options.logData ? {}
       bodyParser: options.bodyParser
       statusCodeRange: statusCodeRange
       timeout: options.timeout

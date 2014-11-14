@@ -88,6 +88,9 @@ class Stats
     @statusCode = undefined
     @error = undefined
 
+    # Add additional fields based on logData
+    extend this, options.logData
+
   toJSON: ->
     # * Exclude `requestOptions` because it contains agent etc.
     #   and won't serialize cleanly
