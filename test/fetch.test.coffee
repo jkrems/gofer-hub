@@ -95,7 +95,7 @@ describe 'hub.fetch', ->
 
   it 'returns all kinds of data when passing a callback', (done) ->
     @timeout 50
-    stream = @hub.fetch uri: api.baseUrl, (error, body, response, stats) ->
+    stream = @hub.fetch uri: api.baseUrl, (error, body, stats, response) ->
       assert.equal undefined, error?.stack
       assert.equal 'ok', body
       assert.equal 200, response.statusCode

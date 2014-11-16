@@ -268,12 +268,12 @@ class HubRequest extends Duplex
     Promise.all([
       @_errorOrNull
       @getBody().catch(noop)
-      @getResponse().catch(noop)
       @stats
+      @getResponse().catch(noop)
     ]).nodeify (error, results) =>
-      return callback(error, undefined, undefined, @stats) if error?
-      [ error, body, response, stats ] = results
+      return callback(error, undefined, @stats, undefined) if error?
+      [ error, body, stats, response ] = results
       body ?= error.body if error?
-      callback error, body, response, stats
+      callback error, body, stats, response
 
 module.exports = HubRequest
